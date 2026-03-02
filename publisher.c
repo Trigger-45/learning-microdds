@@ -1,4 +1,4 @@
-// publisher.c - Publisher für kontinuierliche Random JSON Daten über Micro-XRCE-DDS
+// publisher.c - Publisher für HelloWorld mit JSON-Daten
 
 #include "HelloWorld.h"
 #include <uxr/client/client.h>
@@ -7,57 +7,70 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>  // für sleep()
+#include <unistd.h>
 #include <time.h>
-#include <stdbool.h>
 
 #define STREAM_HISTORY  8
 #define BUFFER_SIZE     UXR_CONFIG_UDP_TRANSPORT_MTU * STREAM_HISTORY
 
-// Funktion, die eine Nachricht über XRCE-DDS publiziert
-void publish_message(uxrSession* session, uxrStreamId reliable_out, uxrObjectId datawriter_id, const char* message)
+// Funktion: Generiert JSON und sendet als HelloWorld
+void publish_json_data(
+    uxrSession* session, 
+    uxrStreamId reliable_out, 
+    uxrObjectId datawriter_id)
 {
-    HelloWorld topic;
-    topic.index = rand() % 1000;  // zufällige ID
-    snprintf(topic.message, sizeof(topic.message), "%s", message);
+    // === Deine Variablen (die du schon hast) ===
+    uint32_t index = rand() % 1000;
+    float temp = 20.0f + ((float)rand() / RAND_MAX) * 15.0f;
+    char* einheit = "Celsius";
+    
+    // Datum/Zeit
+    time_t now = time(NULL);
+    struct tm* t = localtime(&now);
+    char date[50];
+    snprintf(date, sizeof(date), "%04d-%02d-%02d %02d:%02d:%02d",
+             t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
+             t->tm_hour, t->tm_min, t->tm_sec);
+    
+    // Zusätzliche Daten
+    float humidity = 40.0f + ((float)rand() / RAND_MAX) * 30.0f;
+    int pressure = 990 + rand() % 50;
+    char daten[255];
+    snprintf(daten, sizeof(daten), 
+             "{\"humidity\": %.1f, \"pressure\": %d}", 
+             humidity, pressure);
 
-    // Nachricht serialisieren und senden
+    // === JSON-String erstellen ===
+    HelloWorld topic;
+    topic.index = index;
+    
+    snprintf(topic.message, sizeof(topic.message),
+             "{"
+             "\"index\": %d, "
+             "\"temp\": %.2f, "
+             "\"einheit\": \"%s\", "
+             "\"date\": \"%s\", "
+             "\"daten\": \"%s\""
+             "}",
+             index, temp, einheit, date, daten);
+
+    printf("\n[Publisher] Sende HelloWorld:\n");
+    printf("  Index: %d\n", topic.index);
+    printf("  JSON: %s\n", topic.message);
+
+    // Serialisieren und senden
     ucdrBuffer ub;
     uint32_t topic_size = HelloWorld_size_of_topic(&topic, 0);
     uxr_prepare_output_stream(session, reliable_out, datawriter_id, &ub, topic_size);
     HelloWorld_serialize_topic(&ub, &topic);
 
-    printf("[Publisher] Gesendet: %s\n", message);
-
-    // Session ausführen
-    uxr_run_session_time(session, 100);
-}
-
-// Funktion, die kontinuierlich zufällige JSON-Nachrichten generiert und sendet
-void generate_random_json(uxrSession* session, uxrStreamId reliable_out, uxrObjectId datawriter_id)
-{
-    char buffer[256];
-
-    while (true)  // Endlosschleife
-    {
-        int id = rand() % 1000;
-        double value = ((double)rand() / RAND_MAX) * 100.0;
-        int flag = rand() % 2;
-
-        snprintf(buffer, sizeof(buffer),
-                 "{ \"id\": %d, \"value\": %.2f, \"flag\": %s }",
-                 id, value, flag ? "true" : "false");
-
-        // Nachricht senden
-        publish_message(session, reliable_out, datawriter_id, buffer);
-
-        sleep(1);  // kurze Pause zwischen den Nachrichten
-    }
+    uxr_run_session_time(session, 1000);
+    
+    printf("  ✓ Gesendet\n");
 }
 
 int main(int argc, char** argv)
 {
-    // Standardwerte
     char* ip = "127.0.0.1";
     char* port = "8888";
 
@@ -69,12 +82,12 @@ int main(int argc, char** argv)
     else
     {
         printf("Verwendung: %s [ip] [port]\n", argv[0]);
-        printf("Verwende Standardwerte: %s:%s\n", ip, port);
+        printf("Standard: %s:%s\n", ip, port);
     }
 
-    srand((unsigned int)time(NULL)); // Zufall initialisieren
+    srand((unsigned int)time(NULL));
 
-    // UDP Transport initialisieren
+    // UDP Transport
     uxrUDPTransport transport;
     if (!uxr_init_udp_transport(&transport, UXR_IPv4, ip, port))
     {
@@ -82,16 +95,17 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Session initialisieren
+    // Session
     uxrSession session;
     uxr_init_session(&session, &transport.comm, 0xAAAABBBB);
+
     if (!uxr_create_session(&session))
     {
         printf("Fehler beim Erstellen der Session.\n");
         return 1;
     }
 
-    // Output/Input Streams erstellen
+    // Streams
     uint8_t output_reliable_stream_buffer[BUFFER_SIZE];
     uxrStreamId reliable_out = uxr_create_output_reliable_stream(
         &session, output_reliable_stream_buffer, BUFFER_SIZE, STREAM_HISTORY);
@@ -100,45 +114,45 @@ int main(int argc, char** argv)
     uxr_create_input_reliable_stream(
         &session, input_reliable_stream_buffer, BUFFER_SIZE, STREAM_HISTORY);
 
-    // Participant erstellen
+    // Participant
     uxrObjectId participant_id = uxr_object_id(0x01, UXR_PARTICIPANT_ID);
     const char* participant_xml = 
         "<dds>"
         "  <participant>"
         "    <rtps>"
-        "      <name>RandomJSON_Publisher</name>"
+        "      <name>HelloWorldPublisher</name>"
         "    </rtps>"
         "  </participant>"
         "</dds>";
     uint16_t participant_req = uxr_buffer_create_participant_xml(
         &session, reliable_out, participant_id, 0, participant_xml, UXR_REPLACE);
 
-    // Topic erstellen
+    // Topic
     uxrObjectId topic_id = uxr_object_id(0x01, UXR_TOPIC_ID);
     const char* topic_xml = 
         "<dds>"
         "  <topic>"
-        "    <name>RandomJSONTopic</name>"
+        "    <name>HelloWorldTopic</name>"
         "    <dataType>HelloWorld</dataType>"
         "  </topic>"
         "</dds>";
     uint16_t topic_req = uxr_buffer_create_topic_xml(
         &session, reliable_out, topic_id, participant_id, topic_xml, UXR_REPLACE);
 
-    // Publisher erstellen
+    // Publisher
     uxrObjectId publisher_id = uxr_object_id(0x01, UXR_PUBLISHER_ID);
     const char* publisher_xml = "";
     uint16_t publisher_req = uxr_buffer_create_publisher_xml(
         &session, reliable_out, publisher_id, participant_id, publisher_xml, UXR_REPLACE);
 
-    // DataWriter erstellen
+    // DataWriter
     uxrObjectId datawriter_id = uxr_object_id(0x01, UXR_DATAWRITER_ID);
     const char* datawriter_xml = 
         "<dds>"
         "  <data_writer>"
         "    <topic>"
         "      <kind>NO_KEY</kind>"
-        "      <name>RandomJSONTopic</name>"
+        "      <name>HelloWorldTopic</name>"
         "      <dataType>HelloWorld</dataType>"
         "    </topic>"
         "  </data_writer>"
@@ -146,7 +160,7 @@ int main(int argc, char** argv)
     uint16_t datawriter_req = uxr_buffer_create_datawriter_xml(
         &session, reliable_out, datawriter_id, publisher_id, datawriter_xml, UXR_REPLACE);
 
-    // Auf Status-Antworten warten
+    // Status prüfen
     uint8_t status[4];
     uint16_t requests[4] = {participant_req, topic_req, publisher_req, datawriter_req};
     
@@ -160,12 +174,16 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    printf("Publisher initialisiert. Starte kontinuierliches Senden von JSON-Daten...\n");
+    printf("Publisher initialisiert.\n");
+    printf("Sende HelloWorld mit JSON-Daten...\n\n");
 
-    // Zufällige JSON-Nachrichten kontinuierlich senden
-    generate_random_json(&session, reliable_out, datawriter_id);
+    // Haupt-Schleife
+    while (true)
+    {
+        publish_json_data(&session, reliable_out, datawriter_id);
+        sleep(2);
+    }
 
-    // Aufräumen (dieser Punkt wird nie erreicht, da generate_random_json endlos läuft)
     uxr_delete_session(&session);
     uxr_close_udp_transport(&transport);
 
