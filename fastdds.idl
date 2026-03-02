@@ -1,0 +1,11 @@
+// SensorData.idl - IDL-Definition für FastDDS
+// Diese Struktur muss exakt mit der C-Struktur übereinstimmen
+
+struct SensorData
+{
+    unsigned long index;
+    float temp;
+    string<50> einheit;
+    string<50> date;
+    string<255> daten;
+};
