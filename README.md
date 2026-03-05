@@ -1,13 +1,31 @@
-# Micro-XRCE-DDS Test Suite
+<div align="center">
 
-[![C](https://img.shields.io/badge/C-11-blue?logo=c)](https://en.wikipedia.org/wiki/C11_(C_standard_revision))
-[![DDS](https://img.shields.io/badge/DDS-Micro--XRCE-orange)](https://micro-xrce-dds.readthedocs.io/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Active-brightgreen)](README.md)
+# XRCE Exploration
+
+**Exploration & testing ground for Micro-XRCE-DDS — experimenting with pub-sub patterns, multiple message structures, and future bridges to FastDDS.**
+
+[![C](https://img.shields.io/badge/C-11-blue?style=for-the-badge&logo=c&logoColor=white)](https://en.wikipedia.org/wiki/C11_(C_standard_revision))
+[![DDS](https://img.shields.io/badge/Micro--XRCE--DDS-orange?style=for-the-badge&logo=ros&logoColor=white)](https://micro-xrce-dds.readthedocs.io/)
+[![FastCDR](https://img.shields.io/badge/FastCDR-Apache%202.0-blue?style=for-the-badge&logo=eprosima&logoColor=white)](https://github.com/eProsima/Fast-CDR)
+[![License: MIT](https://img.shields.io/badge/License-MIT-red?style=for-the-badge)](LICENSE)
+[![Status](https://img.shields.io/badge/Status-Exploring-brightgreen?style=for-the-badge)](README.md)
+
+---
+
+</div>
 
 Exploration project for **Micro-XRCE-DDS** - a lightweight DDS implementation for IoT and embedded systems. Testing pub-sub patterns, message serialization, and topic routing.
 
-## 🚀 Quick Start
+## Branches
+
+| Branch | Focus | Status |
+|--------|-------|--------|
+| **main** | Core Micro-XRCE-DDS implementation with basic pub-sub patterns | Stable |
+| **dev_fast** | Experiments with FastDDS integration and multi-structure bridges | WIP |
+
+Choose `main` for stable exploration, `dev_fast` for cutting-edge FastDDS bridge experiments.
+
+## Quick Start
 
 ### Prerequisites
 - Micro-XRCE-DDS Agent running on port 7400
