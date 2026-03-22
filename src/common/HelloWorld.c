@@ -1,6 +1,3 @@
-// HelloWorld.c - Implementierung der Serialisierungsfunktionen
-// Diese Funktionen serialisieren/deserialisieren die Datenstruktur
-
 #include "HelloWorld.h"
 #include <ucdr/microcdr.h>
 #include <string.h>

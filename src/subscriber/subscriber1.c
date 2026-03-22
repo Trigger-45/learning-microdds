@@ -1,8 +1,5 @@
-// subscriber1_transformer.c - Transformer: HelloWorld → SensorData
-// Empfängt JSON, parst es, und publiziert als strukturierte Daten
-
-#include "HelloWorld.h"      // Für Input
-#include "SensorData.h"      // Für Output
+#include "HelloWorld.h"
+#include "SensorData.h"
 #include <uxr/client/client.h>
 #include <ucdr/microcdr.h>
 
@@ -14,10 +11,6 @@
 
 #define STREAM_HISTORY  8
 #define BUFFER_SIZE     UXR_CONFIG_UDP_TRANSPORT_MTU * STREAM_HISTORY
-
-// ============================================================
-// EINFACHER JSON-PARSER
-// ============================================================
 
 int json_get_int(const char* json, const char* key)
 {
@@ -73,17 +66,10 @@ void json_get_string(const char* json, const char* key, char* output, size_t max
     output[0] = '\0';
 }
 
-// ============================================================
-// GLOBALE VARIABLEN FÜR PUBLISHING
-// ============================================================
 
 uxrSession* g_session = NULL;
 uxrStreamId g_reliable_out;
 uxrObjectId g_datawriter_id;
-
-// ============================================================
-// CALLBACK: Empfängt HelloWorld, transformiert zu SensorData
-// ============================================================
 
 void on_helloworld_received(
         uxrSession* session,
@@ -101,43 +87,37 @@ void on_helloworld_received(
     (void) length;
     (void) args;
 
-    // === SCHRITT 1: HelloWorld empfangen ===
     HelloWorld hello_topic;
     HelloWorld_deserialize_topic(ub, &hello_topic);
 
-    printf("\n[Subscriber1] Empfangen (HelloWorld):\n");
+    printf("\n[Subscriber1] Received (HelloWorld):\n");
     printf("  Index: %d\n", hello_topic.index);
     printf("  JSON: %s\n", hello_topic.message);
 
-    // === SCHRITT 2: JSON parsen ===
     SensorData sensor_topic;
     
     sensor_topic.index = (uint32_t)json_get_int(hello_topic.message, "index");
     sensor_topic.temp = json_get_float(hello_topic.message, "temp");
-    json_get_string(hello_topic.message, "einheit", sensor_topic.einheit, sizeof(sensor_topic.einheit));
+    json_get_string(hello_topic.message, "unit", sensor_topic.einheit, sizeof(sensor_topic.einheit));
     json_get_string(hello_topic.message, "date", sensor_topic.date, sizeof(sensor_topic.date));
-    json_get_string(hello_topic.message, "daten", sensor_topic.daten, sizeof(sensor_topic.daten));
+    json_get_string(hello_topic.message, "data", sensor_topic.daten, sizeof(sensor_topic.daten));
 
-    printf("[Subscriber1] Geparst zu SensorData:\n");
+    printf("[Subscriber1] Parsed to SensorData:\n");
     printf("  Index: %d\n", sensor_topic.index);
     printf("  Temp: %.2f %s\n", sensor_topic.temp, sensor_topic.einheit);
     printf("  Date: %s\n", sensor_topic.date);
-    printf("  Daten: %s\n", sensor_topic.daten);
+    printf("  Data: %s\n", sensor_topic.daten);
 
-    // === SCHRITT 3: Als SensorData weiterleiten ===
     ucdrBuffer out_ub;
     uint32_t topic_size = SensorData_size_of_topic(&sensor_topic, 0);
     uxr_prepare_output_stream(g_session, g_reliable_out, g_datawriter_id, &out_ub, topic_size);
     SensorData_serialize_topic(&out_ub, &sensor_topic);
 
-    uxr_run_session_time(g_session, 0);  // Non-blocking send
+    uxr_run_session_time(g_session, 0);
 
-    printf("[Subscriber1] ✓ Weitergeleitet als SensorData\n");
+    printf("[Subscriber1] ✓ Forwarded as SensorData\n");
 }
 
-// ============================================================
-// MAIN
-// ============================================================
 
 int main(int argc, char** argv)
 {
@@ -151,15 +131,14 @@ int main(int argc, char** argv)
     }
     else
     {
-        printf("Verwendung: %s [ip] [port]\n", argv[0]);
-        printf("Standard: %s:%s\n", ip, port);
+        printf("Usage: %s [ip] [port]\n", argv[0]);
+        printf("Default: %s:%s\n", ip, port);
     }
 
-    // UDP Transport & Session
     uxrUDPTransport transport;
     if (!uxr_init_udp_transport(&transport, UXR_IPv4, ip, port))
     {
-        printf("Fehler beim Erstellen des UDP Transports.\n");
+        printf("Error creating UDP transport.\n");
         return 1;
     }
 
@@ -169,7 +148,7 @@ int main(int argc, char** argv)
 
     if (!uxr_create_session(&session))
     {
-        printf("Fehler beim Erstellen der Session.\n");
+        printf("Error creating session.\n");
         return 1;
     }
 
@@ -183,7 +162,6 @@ int main(int argc, char** argv)
     uxrStreamId reliable_in = uxr_create_input_reliable_stream(
         &session, input_reliable_stream_buffer, BUFFER_SIZE, STREAM_HISTORY);
 
-    // Participant
     uxrObjectId participant_id = uxr_object_id(0x01, UXR_PARTICIPANT_ID);
     const char* participant_xml =
         "<dds>"
@@ -196,7 +174,6 @@ int main(int argc, char** argv)
     uint16_t participant_req = uxr_buffer_create_participant_xml(
         &session, g_reliable_out, participant_id, 0, participant_xml, UXR_REPLACE);
 
-    // INPUT: Topic + Subscriber + DataReader (HelloWorld)
     uxrObjectId input_topic_id = uxr_object_id(0x01, UXR_TOPIC_ID);
     const char* input_topic_xml =
         "<dds>"
@@ -227,7 +204,6 @@ int main(int argc, char** argv)
     uint16_t datareader_req = uxr_buffer_create_datareader_xml(
         &session, g_reliable_out, datareader_id, subscriber_id, datareader_xml, UXR_REPLACE);
 
-    // OUTPUT: Topic + Publisher + DataWriter (SensorData)
     uxrObjectId output_topic_id = uxr_object_id(0x02, UXR_TOPIC_ID);
     const char* output_topic_xml =
         "<dds>"
@@ -258,7 +234,6 @@ int main(int argc, char** argv)
     uint16_t datawriter_req = uxr_buffer_create_datawriter_xml(
         &session, g_reliable_out, g_datawriter_id, publisher_id, datawriter_xml, UXR_REPLACE);
 
-    // Status prüfen
     uint8_t status[7];
     uint16_t requests[7] = {
         participant_req, 
@@ -268,20 +243,18 @@ int main(int argc, char** argv)
 
     if (!uxr_run_session_until_all_status(&session, 1000, requests, status, 7))
     {
-        printf("Fehler beim Erstellen der Entities.\n");
+        printf("Error creating DDS entities.\n");
         return 1;
     }
 
-    // Daten-Request starten
     uxrDeliveryControl delivery_control = {0};
     delivery_control.max_samples = UXR_MAX_SAMPLES_UNLIMITED;
     uxr_buffer_request_data(&session, g_reliable_out, datareader_id, reliable_in, &delivery_control);
 
-    printf("Subscriber1 (Transformer) initialisiert.\n");
-    printf("  Empfängt: HelloWorldTopic (HelloWorld)\n");
-    printf("  Sendet: SensorDataTopic (SensorData)\n\n");
+    printf("Subscriber1 (Transformer) initialized.\n");
+    printf("  Receiving: HelloWorldTopic (HelloWorld)\n");
+    printf("  Sending: SensorDataTopic (SensorData)\n\n");
 
-    // Endlos-Loop
     while (true)
     {
         uxr_run_session_time(&session, 1000);
